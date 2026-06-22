@@ -1,0 +1,6 @@
+port: 8080
+routes:
+  - path: /api/users
+    upstream: http://localhost:3001
+  - path: /api/orders
+    upstream: http://localhost:3002
