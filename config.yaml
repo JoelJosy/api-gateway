@@ -1,5 +1,7 @@
 port: 8080
 routes:
+  - path: /typicode
+    upstream: https://jsonplaceholder.typicode.com
   - path: /api/users
     upstream: http://localhost:3001
   - path: /api/orders

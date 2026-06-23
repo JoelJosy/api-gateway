@@ -3,8 +3,11 @@ package main
 import (
 	"fmt"
 	"log"
+	"net/http"
 
 	"github.com/JoelJosy/api-gateway/config"
+	"github.com/JoelJosy/api-gateway/proxy"
+	"github.com/JoelJosy/api-gateway/router"
 )
 
 func main() {
@@ -14,8 +17,10 @@ func main() {
 	}
 
 	fmt.Printf("API Gateway starting on port %d\n", cfg.Port)
-	fmt.Println("Loaded routes:")
-	for _, route := range cfg.Routes {
-		fmt.Printf("- %s -> %s\n", route.Path, route.Upstream)
-	}
+
+	// init proxy
+	r := router.NewRouter(cfg.Routes)
+	p := proxy.NewProxy(r)
+
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", cfg.Port), p))
 }
