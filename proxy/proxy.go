@@ -1,10 +1,12 @@
 package proxy
 
 import (
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/JoelJosy/api-gateway/router"
 )
@@ -12,10 +14,24 @@ import (
 // implements http.Handler interface for ListenAndServe to work
 type Proxy struct {
 	router *router.Router
+	transport *http.Transport
 }
 
 func NewProxy(r *router.Router) *Proxy {
-	return &Proxy{r}
+	return &Proxy{
+		router: r,
+		transport: &http.Transport{
+			// pre connection timeouts (DNS lookup, TCP connect hang)
+			DialContext: (&net.Dialer{
+        		Timeout: 5 * time.Second,
+    		}).DialContext,
+			// https timeout
+			TLSHandshakeTimeout: 5 * time.Second,
+			// post connection timeout
+			// The maximum amount of time to wait for the upstream's HTTP response headers
+            ResponseHeaderTimeout: 5 * time.Second,
+		},
+	}
 }
 
 // http handler for proxy
@@ -52,6 +68,9 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			pr.Out.URL.Path = "/"
 		}
 	}
+
+	proxy.Transport = p.transport
+
 	// forwards request upstream and writes response to client
 	proxy.ServeHTTP(w, r)
 }
