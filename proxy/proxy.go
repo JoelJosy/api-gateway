@@ -21,7 +21,7 @@ func NewProxy(r *router.Router) *Proxy {
 // http handler for proxy
 func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// get upstream url from router
-	upstream, err := p.router.Match(r.URL.Path)
+	upstream, routePath, err := p.router.Match(r.URL.Path)
 	if err != nil {
 		http.Error(w, "Not Found", http.StatusNotFound)
 		return
@@ -46,8 +46,8 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// - prepares pr.Out for forwarding
 		// strip /typicode prefix
 
-		// prefix strip for testing
-		pr.Out.URL.Path = strings.TrimPrefix(pr.In.URL.Path, "/typicode")
+		// strip prefix for upstream
+		pr.Out.URL.Path = strings.TrimPrefix(pr.In.URL.Path, routePath)
 		if pr.Out.URL.Path == "" {
 			pr.Out.URL.Path = "/"
 		}

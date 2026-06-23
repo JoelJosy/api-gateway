@@ -25,11 +25,11 @@ func NewRouter(routes []config.Route) *Router {
 }
 
 // finds the first upstream URL that matches the incoming path prefix
-func (r *Router) Match(path string) (string, error) {
+func (r *Router) Match(path string) (string, string, error) {
 	for _, route := range r.routes {
 		if strings.HasPrefix(path, route.Path) {
-			return route.Upstream, nil
+			return route.Upstream, route.Path, nil
 		}
 	}
-	return "", errors.New("no route matched")
+	return "", "", errors.New("no route matched")
 }
