@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/JoelJosy/api-gateway/config"
+	"github.com/JoelJosy/api-gateway/middleware"
 	"github.com/JoelJosy/api-gateway/proxy"
 	"github.com/JoelJosy/api-gateway/router"
 )
@@ -22,5 +23,7 @@ func main() {
 	r := router.NewRouter(cfg.Routes)
 	p := proxy.NewProxy(r)
 
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", cfg.Port), p))
+	handler := middleware.Chain(p, middleware.LoggerMiddleware)
+
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", cfg.Port), handler))
 }
