@@ -14,6 +14,7 @@ type Config struct {
 type Route struct {
 	Path     string `yaml:"path"`
 	Upstream string `yaml:"upstream"`
+	Auth_Required bool `yaml: "auth_required"`
 }
 
 func Load(path string) (*Config, error) {
