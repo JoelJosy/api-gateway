@@ -13,8 +13,7 @@ import (
 
 // payload / data expected in jwt
 type GatewayClaims struct {
-	UserID string `json:"user_id"`
-    Email  string `json:"email"`
+	Role string `json:"role"`
 	jwt.RegisteredClaims
 }
 
@@ -71,8 +70,9 @@ func AuthMiddleware(cfg *config.Config, verifyKey *rsa.PublicKey) Middleware {
 			// Example: 
 			// token := &jwt.Token{
 			//     Claims: &GatewayClaims{
-			//         UserID: "123",
 			//         Role: "admin",
+			// 		   sub: "user123",
+			//		   etc...
 			//     },
 			//     Valid: true
 			// }
@@ -86,7 +86,7 @@ func AuthMiddleware(cfg *config.Config, verifyKey *rsa.PublicKey) Middleware {
 			// convert type from interface{} to *GatewayClaims and save in claims var
 			if claims, ok := token.Claims.(*GatewayClaims); ok {
 				// inject user id from payload into
-				ctx := context.WithValue(r.Context(), claimsKey, claims.UserID)
+				ctx := context.WithValue(r.Context(), claimsKey, claims.Subject)
 				newRequest := r.WithContext(ctx)
 
 				next.ServeHTTP(w, newRequest)
