@@ -14,7 +14,7 @@ import (
 // payload / data expected in jwt
 type GatewayClaims struct {
 	Role string `json:"role"`
-	jwt.RegisteredClaims
+	jwt.RegisteredClaims // embedded, includes sub
 }
 
 var claimsKey = contextKey{}
@@ -27,9 +27,9 @@ func AuthMiddleware(cfg *config.Config, verifyKey *rsa.PublicKey) Middleware {
 			var matchedRoute *config.Route
 			
 			// Find the correct route using prefix matching
-			for _, route := range cfg.Routes {
-				if strings.HasPrefix(r.URL.Path, route.Path) {
-					matchedRoute = &route
+			for i := range cfg.Routes {
+				if strings.HasPrefix(r.URL.Path, cfg.Routes[i].Path) {
+					matchedRoute = &cfg.Routes[i]
 					break
 				}
 			}
@@ -49,7 +49,7 @@ func AuthMiddleware(cfg *config.Config, verifyKey *rsa.PublicKey) Middleware {
 			// Auth required
 			authHeader := r.Header.Get("Authorization")
 			// 401 unauthorized
-			if (len(authHeader) == 0 || strings.HasPrefix(authHeader, "Bearer ")) {
+			if (authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ")) {
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return 
 			}
@@ -84,16 +84,14 @@ func AuthMiddleware(cfg *config.Config, verifyKey *rsa.PublicKey) Middleware {
 			}
 			
 			// convert type from interface{} to *GatewayClaims and save in claims var
-			if claims, ok := token.Claims.(*GatewayClaims); ok {
-				// inject user id from payload into
-				ctx := context.WithValue(r.Context(), claimsKey, claims.Subject)
-				newRequest := r.WithContext(ctx)
-
-				next.ServeHTTP(w, newRequest)
+			claims, ok := token.Claims.(*GatewayClaims)
+			if !ok {
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
 			}
-
-			next.ServeHTTP(w, r)
+			// inject user id from payload into context
+			ctx := context.WithValue(r.Context(), claimsKey, claims.Subject)
+			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
 }
