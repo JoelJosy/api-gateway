@@ -7,14 +7,26 @@ import (
 )
 
 type Config struct {
-	Port   int     `yaml:"port"`
+	Port   int `yaml:"port"`
+	Redis  RedisConfig `yaml:"redis"`
+	RateLimit  RateLimit `yaml:"rate_limit"`
 	Routes []Route `yaml:"routes"`
 }
 
 type Route struct {
 	Path     string `yaml:"path"`
 	Upstream string `yaml:"upstream"`
-	Auth_Required bool `yaml: "auth_required"`
+	AuthRequired bool `yaml: "auth_required"`
+}
+type RedisConfig struct {
+	Address string `yaml:"address"`
+}
+type RateLimit struct {
+
+	MaxTokens  int    `yaml:"max_tokens"`
+	RefillRate int    `yaml:"refill_rate"`
+	KeyBy      string `yaml:"key_by"` // "ip" or "user_id"
+
 }
 
 func Load(path string) (*Config, error) {

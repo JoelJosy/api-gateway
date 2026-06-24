@@ -41,7 +41,7 @@ func AuthMiddleware(cfg *config.Config, verifyKey *rsa.PublicKey) Middleware {
             }
 			
 			// Public endpoint, let it through
-			if !matchedRoute.Auth_Required {
+			if !matchedRoute.AuthRequired {
                 next.ServeHTTP(w, r) 
                 return
             }
