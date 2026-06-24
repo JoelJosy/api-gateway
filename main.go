@@ -20,9 +20,9 @@ func main() {
 		log.Fatalf("failed to load config: %v", err)
 	}
 	// Load public key for jwt verification
-	pubKey, err := config.ParsePublicKeyPEM("./public.pem")
+	pubKey, err := config.ParsePublicKeyPEM("certs/public.pem")
 	if err != nil {
-		log.Fatalf("failed to load config: %v", err)
+		log.Fatalf("failed to load public key: %v", err)
 	}
 
 	// Load redis client

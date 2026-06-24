@@ -17,7 +17,7 @@ type Claims struct {
 
 func main() {
 	// Read private.pem bytes using os.ReadFile
-	data, err := os.ReadFile("./private.pem")
+	data, err := os.ReadFile("certs/private.pem")
 	if err != nil {
 		fmt.Println(err)
 		return 
