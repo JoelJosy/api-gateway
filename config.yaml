@@ -3,9 +3,6 @@ routes:
   - path: /typicode
     upstream: https://jsonplaceholder.typicode.com
     auth_required: true
-  - path: /api/users
-    upstream: http://localhost:3001
-    auth_required: false
-  - path: /api/orders
-    upstream: http://localhost:3002
+  - path: /public
+    upstream: https://jsonplaceholder.typicode.com
     auth_required: false
