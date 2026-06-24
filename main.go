@@ -37,10 +37,10 @@ func main() {
 	// test redis connection
 	pong, err := rdb.Ping(ctx).Result()
 	if err != nil {
-		log.Printf("Warning: Redis unreachable: %v. Rate limiting will fail open.", err)
-		return
+		// fail fast
+		log.Fatalf("Redis not available: %v", err)
 	}
-	log.Printf("Redis response: %s", pong)
+	log.Printf("Redis connected: %s", pong)
 
 
 	fmt.Printf("API Gateway starting on port %d\n", cfg.Port)
