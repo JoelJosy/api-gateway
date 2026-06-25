@@ -3,7 +3,12 @@ package middleware
 import (
 	"context"
 	"fmt"
+	"log/slog"
+	"math"
+	"net/http"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/JoelJosy/api-gateway/config"
@@ -61,4 +66,56 @@ func (rl *RateLimiter) Allow(ctx context.Context, key string) (bool, int, error)
 	allowed := results[0].(int64) == 1
 	remaining := int(results[1].(int64))
 	return allowed, remaining, nil
+}
+
+func (rl *RateLimiter) Middleware() Middleware {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			var key string
+			if (rl.cfg.RateLimit.KeyBy == "ip") {
+				key = strings.Split(r.RemoteAddr, ":")[0]
+			} else {
+				// Safely read the public claims key from your auth file
+				if userId, ok := r.Context().Value(claimsKey).(string); ok {
+					key = userId
+				} else {
+					// Fallback to IP if the route was public and has no user context
+					key = strings.Split(r.RemoteAddr, ":")[0]
+				}
+			}
+
+			allow, remaining, err := rl.Allow(r.Context(), key)
+			
+			// Set the rate limit response headers 
+			w.Header().Set("X-RateLimit-Limit", fmt.Sprintf("%d", rl.cfg.RateLimit.MaxTokens))
+			w.Header().Set("X-RateLimit-Remaining", fmt.Sprintf("%d", remaining))
+
+			// Fail closed: intercept if redis outage
+			if err != nil {
+				// Log the internal database error so operations can see it
+				slog.Error("rate limiter redis error", "err", err, "key", key)
+				
+				// Block the user with a 500 or 503 since it's a gateway/infrastructure issue
+				http.Error(w, "Service Unavailable", http.StatusServiceUnavailable)
+				return
+			}
+
+			// Rate limit exceeded
+			if !allow {
+				// Calculate wait time: 1 token divided by tokens-per-second refill rate
+				refill := float64(rl.cfg.RateLimit.RefillRate)
+    			waitTime := 1.0 / refill
+				retryAfter := int(math.Ceil(waitTime))
+				w.Header().Set("Retry-After", strconv.Itoa(retryAfter))
+				
+				// Block request
+				// to return json error response instead of plain text
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusTooManyRequests)
+				w.Write([]byte(`{"error": "Too many requests"}`))
+				return
+			} 
+			next.ServeHTTP(w, r)
+		})
+	}
 }
