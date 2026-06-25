@@ -2,9 +2,9 @@ port: 8080
 redis:
   address: "localhost:6379"
 rate_limit:
-  max_tokens: 10        # Bucket size
-  refill_rate: 2        # Tokens added per second
-  key_by: "user_id"     # "ip" or "user_id"
+  max_tokens: 5        # Bucket size
+  refill_rate: 1        # Tokens added per second
+  key_by: "ip"     # "ip" or "user_id"
 routes:
   - path: /typicode
     upstream: https://jsonplaceholder.typicode.com

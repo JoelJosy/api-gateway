@@ -45,11 +45,21 @@ func main() {
 
 	fmt.Printf("API Gateway starting on port %d\n", cfg.Port)
 
+	// init ratelimiter
+	rl, err := middleware.NewRateLimiter(rdb, cfg)
+	if err != nil {
+		fmt.Printf("RateLimiter not initialized: %v", err)
+	}
+
 	// init proxy
 	r := router.NewRouter(cfg.Routes)
 	p := proxy.NewProxy(r)
 
-	handler := middleware.Chain(p, middleware.LoggerMiddleware, middleware.AuthMiddleware(cfg, pubKey))
+	handler := middleware.Chain(
+		p, 
+		middleware.LoggerMiddleware, 
+		middleware.AuthMiddleware(cfg, pubKey), 
+		rl.Middleware())
 
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", cfg.Port), handler))
 }
