@@ -16,7 +16,7 @@ type Config struct {
 type Route struct {
 	Path     string `yaml:"path"`
 	Upstream string `yaml:"upstream"`
-	AuthRequired bool `yaml: "auth_required"`
+	AuthRequired bool `yaml:"auth_required"`
 }
 type RedisConfig struct {
 	Address string `yaml:"address"`
