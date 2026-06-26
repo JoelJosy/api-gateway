@@ -8,28 +8,39 @@ import (
 	"strings"
 	"time"
 
+	"github.com/JoelJosy/api-gateway/config"
 	"github.com/JoelJosy/api-gateway/router"
 )
 
 // implements http.Handler interface for ListenAndServe to work
 type Proxy struct {
-	router *router.Router
+	router    *router.Router
 	transport *http.Transport
 }
 
-func NewProxy(r *router.Router) *Proxy {
+func NewProxy(r *router.Router, proxyCfg config.ProxyConfig) *Proxy {
+	if proxyCfg.DialTimeout == 0 {
+		proxyCfg.DialTimeout = 5 * time.Second
+	}
+	if proxyCfg.TLSHandshakeTimeout == 0 {
+		proxyCfg.TLSHandshakeTimeout = 5 * time.Second
+	}
+	if proxyCfg.ResponseHeaderTimeout == 0 {
+		proxyCfg.ResponseHeaderTimeout = 5 * time.Second
+	}
+
 	return &Proxy{
 		router: r,
 		transport: &http.Transport{
 			// pre connection timeouts (DNS lookup, TCP connect hang)
 			DialContext: (&net.Dialer{
-        		Timeout: 5 * time.Second,
-    		}).DialContext,
+				Timeout: proxyCfg.DialTimeout,
+			}).DialContext,
 			// https timeout
-			TLSHandshakeTimeout: 5 * time.Second,
+			TLSHandshakeTimeout: proxyCfg.TLSHandshakeTimeout,
 			// post connection timeout
 			// The maximum amount of time to wait for the upstream's HTTP response headers
-            ResponseHeaderTimeout: 5 * time.Second,
+			ResponseHeaderTimeout: proxyCfg.ResponseHeaderTimeout,
 		},
 	}
 }
@@ -52,7 +63,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// create reverse proxy and define how request should be rewritten
 	proxy := &httputil.ReverseProxy{}
-	proxy.Rewrite = func (pr *httputil.ProxyRequest)  {
+	proxy.Rewrite = func(pr *httputil.ProxyRequest) {
 		// pr.In = original incoming request (client → gateway)
 		// pr.Out = request that will be sent to upstream service
 		pr.SetURL(targetURL)

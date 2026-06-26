@@ -5,6 +5,10 @@ rate_limit:
   max_tokens: 5        # Bucket size
   refill_rate: 1        # Tokens added per second
   key_by: "ip"     # "ip" or "user_id"
+proxy:
+  dial_timeout: "5s"
+  tls_handshake_timeout: "5s"
+  response_header_timeout: "5s"
 routes:
   - path: /typicode
     upstream: https://jsonplaceholder.typicode.com
@@ -12,3 +16,4 @@ routes:
   - path: /public
     upstream: https://jsonplaceholder.typicode.com
     auth_required: false
+public_key_path: "certs/public.pem"

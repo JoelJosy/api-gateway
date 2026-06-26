@@ -2,27 +2,36 @@ package config
 
 import (
 	"os"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
-	Port   int `yaml:"port"`
-	Redis  RedisConfig `yaml:"redis"`
-	RateLimit  RateLimit `yaml:"rate_limit"`
-	Routes []Route `yaml:"routes"`
+	Port       int         `yaml:"port"`
+	Redis      RedisConfig `yaml:"redis"`
+	RateLimit  RateLimit   `yaml:"rate_limit"`
+	Proxy      ProxyConfig `yaml:"proxy"`
+	Routes     []Route     `yaml:"routes"`
+	PubKeyPath string      `yaml:"public_key_path"`
 }
 
 type Route struct {
-	Path     string `yaml:"path"`
-	Upstream string `yaml:"upstream"`
-	AuthRequired bool `yaml:"auth_required"`
+	Path         string `yaml:"path"`
+	Upstream     string `yaml:"upstream"`
+	AuthRequired bool   `yaml:"auth_required"`
 }
 type RedisConfig struct {
 	Address string `yaml:"address"`
 }
-type RateLimit struct {
 
+type ProxyConfig struct {
+	DialTimeout           time.Duration `yaml:"dial_timeout"`
+	TLSHandshakeTimeout   time.Duration `yaml:"tls_handshake_timeout"`
+	ResponseHeaderTimeout time.Duration `yaml:"response_header_timeout"`
+}
+
+type RateLimit struct {
 	MaxTokens  int    `yaml:"max_tokens"`
 	RefillRate int    `yaml:"refill_rate"`
 	KeyBy      string `yaml:"key_by"` // "ip" or "user_id"

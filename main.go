@@ -20,14 +20,14 @@ func main() {
 		log.Fatalf("failed to load config: %v", err)
 	}
 	// Load public key for jwt verification
-	pubKey, err := config.ParsePublicKeyPEM("certs/public.pem")
+	pubKey, err := config.ParsePublicKeyPEM(cfg.PubKeyPath)
 	if err != nil {
 		log.Fatalf("failed to load public key: %v", err)
 	}
 
 	// Load redis client
 	rdb := redis.NewClient(&redis.Options{
-    	Addr: cfg.Redis.Address,
+		Addr:     cfg.Redis.Address,
 		Password: "", // no password
 		DB:       0,  // use default DB
 		Protocol: 2,
@@ -42,7 +42,6 @@ func main() {
 	}
 	log.Printf("Redis connected: %s", pong)
 
-
 	fmt.Printf("API Gateway starting on port %d\n", cfg.Port)
 
 	// init ratelimiter
@@ -53,12 +52,12 @@ func main() {
 
 	// init proxy
 	r := router.NewRouter(cfg.Routes)
-	p := proxy.NewProxy(r)
+	p := proxy.NewProxy(r, cfg.Proxy)
 
 	handler := middleware.Chain(
-		p, 
-		middleware.LoggerMiddleware, 
-		middleware.AuthMiddleware(cfg, pubKey), 
+		p,
+		middleware.LoggerMiddleware,
+		middleware.AuthMiddleware(cfg, pubKey),
 		rl.Middleware())
 
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", cfg.Port), handler))
