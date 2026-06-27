@@ -49,7 +49,7 @@ func main() {
 	// init ratelimiter
 	rl, err := middleware.NewRateLimiter(rdb, cfg)
 	if err != nil {
-		fmt.Printf("RateLimiter not initialized: %v", err)
+		log.Fatalf("RateLimiter not initialized: %v", err)
 	}
 
 	// init proxy and health handler

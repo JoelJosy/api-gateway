@@ -1,11 +1,14 @@
 package proxy
 
 import (
+	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/JoelJosy/api-gateway/config"
@@ -16,6 +19,8 @@ import (
 type Proxy struct {
 	router    *router.Router
 	transport *http.Transport
+	breakers    map[string]*CircuitBreaker
+	breakersMu  sync.RWMutex
 }
 
 func NewProxy(r *router.Router, proxyCfg config.ProxyConfig) *Proxy {
@@ -42,8 +47,34 @@ func NewProxy(r *router.Router, proxyCfg config.ProxyConfig) *Proxy {
 			// The maximum amount of time to wait for the upstream's HTTP response headers
 			ResponseHeaderTimeout: proxyCfg.ResponseHeaderTimeout,
 		},
+		breakers: make(map[string]*CircuitBreaker),
 	}
 }
+
+// Helper to safely fetch or create a circuit breaker for an upstream URL
+func (p *Proxy) getBreaker(upstream string) *CircuitBreaker {
+	p.breakersMu.RLock()
+	cb, exists := p.breakers[upstream]
+	p.breakersMu.RUnlock()
+
+	if exists {
+		return cb
+	}
+
+	p.breakersMu.Lock()
+	defer p.breakersMu.Unlock()
+
+	// Double check inside the write lock to prevent race conditions
+	if cb, exists = p.breakers[upstream]; exists {
+		return cb
+	}
+
+	// Create new breaker for upstream
+	cb = NewCircuitBreaker(5, 20*time.Second)
+	p.breakers[upstream] = cb
+	return cb
+}
+
 
 // http handler for proxy
 func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -51,6 +82,19 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	upstream, routePath, err := p.router.Match(r.URL.Path)
 	if err != nil {
 		http.Error(w, "Not Found", http.StatusNotFound)
+		return
+	}
+
+	// get circuit breaker for upstream
+	cb := p.getBreaker(upstream)
+
+	// check circuit breaker state, switch states if needed
+	if !cb.Allow() {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("X-Circuit-Breaker", "OPEN")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		// Custom header letting clients know a circuit breaker caught them
+		w.Write([]byte(`{"error": "Upstream service is unhealthy. Circuit breaker is open."}`))
 		return
 	}
 
@@ -80,7 +124,33 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// set timeout config for stransport 
 	proxy.Transport = p.transport
+
+	// upstream sends response, inspect and update cb
+	proxy.ModifyResponse = func(resp *http.Response) error {
+		if resp.StatusCode < 500 {
+			// succesful => reset breaker state
+			cb.RecordResult(nil)
+		} else if resp.StatusCode == http.StatusBadGateway || resp.StatusCode == http.StatusGatewayTimeout {
+			// upstream error => update breaker state
+			cb.RecordResult(fmt.Errorf("upstream returned code %d", resp.StatusCode))
+		}
+		return nil
+	}
+
+	// unable to reach upstream (network drop)
+	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
+		// Log the failure telemetry
+		slog.Error("reverse proxy network failure", "upstream", upstream, "err", err)
+		
+		// update breaker
+		cb.RecordResult(err)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadGateway) 
+		w.Write([]byte(`{"error": "Bad gateway connection to upstream microservice"}`))
+	} 
 
 	// forwards request upstream and writes response to client
 	proxy.ServeHTTP(w, r)
