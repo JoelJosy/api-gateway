@@ -5,6 +5,10 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/JoelJosy/api-gateway/config"
 	"github.com/JoelJosy/api-gateway/middleware"
@@ -35,14 +39,11 @@ func main() {
 	// redis needs context to handle timeouts/cancellation
 	ctx := context.Background()
 	// test redis connection
-	pong, err := rdb.Ping(ctx).Result()
+	err = rdb.Ping(ctx).Err()
 	if err != nil {
 		// fail fast
 		log.Fatalf("Redis not available: %v", err)
 	}
-	log.Printf("Redis connected: %s", pong)
-
-	fmt.Printf("API Gateway starting on port %d\n", cfg.Port)
 
 	// init ratelimiter
 	rl, err := middleware.NewRateLimiter(rdb, cfg)
@@ -54,11 +55,45 @@ func main() {
 	r := router.NewRouter(cfg.Routes)
 	p := proxy.NewProxy(r, cfg.Proxy)
 
+	// channel to listen for OS signals
+	stop := make(chan os.Signal, 1)
+	// notify if ctrl c / kill and propagate into channel
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+	
+	// server request handler
 	handler := middleware.Chain(
 		p,
 		middleware.LoggerMiddleware,
 		middleware.AuthMiddleware(cfg, pubKey),
 		rl.Middleware())
 
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", cfg.Port), handler))
+	// init server manually
+	srv := &http.Server{
+    	Addr:    fmt.Sprintf(":%d", cfg.Port),
+    	Handler: handler,
+	}
+
+	// non blocking fn to listen and serve
+	go func() {
+    	log.Printf("API Gateway starting on port %d", cfg.Port)
+    	err := srv.ListenAndServe(); 
+		if err != nil && err != http.ErrServerClosed {
+        	log.Fatalf("Server failed to start: %v", err)
+    	}
+	}()
+	
+	// blocks main, until ctrl c / kill
+	<-stop
+	log.Println("Shutting down gateway...")
+	
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	
+	// stops server from accepting new connections
+	// waits for ongoing reqs to finish (within timeout)
+	err = srv.Shutdown(shutdownCtx); 
+	if err != nil {
+    	log.Fatalf("Server forced to shutdown: %v", err)
+	}
+	log.Println("Gateway stopped. Goodbye!")
 }
