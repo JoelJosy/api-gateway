@@ -158,7 +158,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadGateway)
-		w.Write([]byte(`{"error": "Bad gateway connection to upstream microservice"}`))
+		w.Write([]byte(`{"error": "Bad gateway"}`))
 	}
 
 	// forwards request upstream and writes response to client
