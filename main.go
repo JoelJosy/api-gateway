@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/JoelJosy/api-gateway/config"
+	"github.com/JoelJosy/api-gateway/health"
 	"github.com/JoelJosy/api-gateway/middleware"
 	"github.com/JoelJosy/api-gateway/proxy"
 	"github.com/JoelJosy/api-gateway/router"
@@ -51,49 +52,53 @@ func main() {
 		fmt.Printf("RateLimiter not initialized: %v", err)
 	}
 
-	// init proxy
+	// init proxy and health handler
 	r := router.NewRouter(cfg.Routes)
 	p := proxy.NewProxy(r, cfg.Proxy)
+	healthHandler := health.NewHandler(rdb)
 
 	// channel to listen for OS signals
 	stop := make(chan os.Signal, 1)
 	// notify if ctrl c / kill and propagate into channel
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
-	
+
 	// server request handler
-	handler := middleware.Chain(
+	mux := http.NewServeMux()
+	mux.Handle("/health", healthHandler)
+	mux.Handle("/", middleware.Chain(
 		p,
 		middleware.LoggerMiddleware,
 		middleware.AuthMiddleware(cfg, pubKey),
-		rl.Middleware())
+		rl.Middleware(),
+	))
 
 	// init server manually
 	srv := &http.Server{
-    	Addr:    fmt.Sprintf(":%d", cfg.Port),
-    	Handler: handler,
+		Addr:    fmt.Sprintf(":%d", cfg.Port),
+		Handler: mux,
 	}
 
 	// non blocking fn to listen and serve
 	go func() {
-    	log.Printf("API Gateway starting on port %d", cfg.Port)
-    	err := srv.ListenAndServe(); 
+		log.Printf("API Gateway starting on port %d", cfg.Port)
+		err := srv.ListenAndServe()
 		if err != nil && err != http.ErrServerClosed {
-        	log.Fatalf("Server failed to start: %v", err)
-    	}
+			log.Fatalf("Server failed to start: %v", err)
+		}
 	}()
-	
+
 	// blocks main, until ctrl c / kill
 	<-stop
 	log.Println("Shutting down gateway...")
-	
+
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	
+
 	// stops server from accepting new connections
 	// waits for ongoing reqs to finish (within timeout)
-	err = srv.Shutdown(shutdownCtx); 
+	err = srv.Shutdown(shutdownCtx)
 	if err != nil {
-    	log.Fatalf("Server forced to shutdown: %v", err)
+		log.Fatalf("Server forced to shutdown: %v", err)
 	}
 	log.Println("Gateway stopped. Goodbye!")
 }
