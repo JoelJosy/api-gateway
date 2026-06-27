@@ -26,9 +26,11 @@ type RedisConfig struct {
 }
 
 type ProxyConfig struct {
-	DialTimeout           time.Duration `yaml:"dial_timeout"`
-	TLSHandshakeTimeout   time.Duration `yaml:"tls_handshake_timeout"`
-	ResponseHeaderTimeout time.Duration `yaml:"response_header_timeout"`
+	DialTimeout             time.Duration `yaml:"dial_timeout"`
+	TLSHandshakeTimeout     time.Duration `yaml:"tls_handshake_timeout"`
+	ResponseHeaderTimeout   time.Duration `yaml:"response_header_timeout"`
+	CircuitBreakerThreshold int           `yaml:"circuit_breaker_threshold"`
+	CircuitBreakerCooldown  time.Duration `yaml:"circuit_breaker_cooldown"`
 }
 
 type RateLimit struct {

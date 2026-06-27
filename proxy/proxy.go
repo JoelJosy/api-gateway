@@ -17,10 +17,12 @@ import (
 
 // implements http.Handler interface for ListenAndServe to work
 type Proxy struct {
-	router    *router.Router
-	transport *http.Transport
-	breakers    map[string]*CircuitBreaker
-	breakersMu  sync.RWMutex
+	router           *router.Router
+	transport        *http.Transport
+	breakers         map[string]*CircuitBreaker
+	breakersMu       sync.RWMutex
+	breakerThreshold int
+	breakerCooldown  time.Duration
 }
 
 func NewProxy(r *router.Router, proxyCfg config.ProxyConfig) *Proxy {
@@ -33,9 +35,17 @@ func NewProxy(r *router.Router, proxyCfg config.ProxyConfig) *Proxy {
 	if proxyCfg.ResponseHeaderTimeout == 0 {
 		proxyCfg.ResponseHeaderTimeout = 5 * time.Second
 	}
+	if proxyCfg.CircuitBreakerThreshold == 0 {
+		proxyCfg.CircuitBreakerThreshold = 5
+	}
+	if proxyCfg.CircuitBreakerCooldown == 0 {
+		proxyCfg.CircuitBreakerCooldown = 20 * time.Second
+	}
 
 	return &Proxy{
-		router: r,
+		router:           r,
+		breakerThreshold: proxyCfg.CircuitBreakerThreshold,
+		breakerCooldown:  proxyCfg.CircuitBreakerCooldown,
 		transport: &http.Transport{
 			// pre connection timeouts (DNS lookup, TCP connect hang)
 			DialContext: (&net.Dialer{
@@ -70,11 +80,10 @@ func (p *Proxy) getBreaker(upstream string) *CircuitBreaker {
 	}
 
 	// Create new breaker for upstream
-	cb = NewCircuitBreaker(5, 20*time.Second)
+	cb = NewCircuitBreaker(p.breakerThreshold, p.breakerCooldown)
 	p.breakers[upstream] = cb
 	return cb
 }
-
 
 // http handler for proxy
 func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -124,7 +133,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// set timeout config for stransport 
+	// set timeout config for transport
 	proxy.Transport = p.transport
 
 	// upstream sends response, inspect and update cb
@@ -143,14 +152,14 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
 		// Log the failure telemetry
 		slog.Error("reverse proxy network failure", "upstream", upstream, "err", err)
-		
+
 		// update breaker
 		cb.RecordResult(err)
 
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadGateway) 
+		w.WriteHeader(http.StatusBadGateway)
 		w.Write([]byte(`{"error": "Bad gateway connection to upstream microservice"}`))
-	} 
+	}
 
 	// forwards request upstream and writes response to client
 	proxy.ServeHTTP(w, r)
