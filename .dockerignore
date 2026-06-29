@@ -1,0 +1,13 @@
+# Ignore sensitive cryptographic keys
+private.pem
+
+# Ignore local build artifacts and dependencies
+bin/
+api-gateway
+vendor/
+
+# Ignore development logs and environment overrides
+*.log
+.env
+.git
+.github

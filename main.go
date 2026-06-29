@@ -25,7 +25,7 @@ func main() {
 		log.Fatalf("failed to load config: %v", err)
 	}
 	// Load public key for jwt verification
-	pubKey, err := config.ParsePublicKeyPEM(cfg.PubKeyPath)
+	pubKey, err := config.LoadPublicKey(*cfg)
 	if err != nil {
 		log.Fatalf("failed to load public key: %v", err)
 	}
