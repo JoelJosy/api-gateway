@@ -24,6 +24,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to load config: %v", err)
 	}
+
+	if v := os.Getenv("REDIS_ADDR"); v != "" {
+    	cfg.Redis.Address = v
+	}
+
 	// Load public key for jwt verification
 	pubKey, err := config.LoadPublicKey(*cfg)
 	if err != nil {

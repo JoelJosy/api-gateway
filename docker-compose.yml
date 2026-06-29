@@ -1,0 +1,15 @@
+services:
+  gateway-redis:
+    image: redis:7-alpine
+    container_name: gateway-redis
+
+  api-gateway:
+    build: .
+    container_name: api-gateway
+    # expose ports
+    ports:
+      - "8080:8080"
+    environment:
+      - REDIS_ADDR=gateway-redis:6379 
+    depends_on:
+      - gateway-redis

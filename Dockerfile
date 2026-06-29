@@ -8,3 +8,20 @@ RUN go mod download
 COPY . .
 
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o api-gateway main.go
+
+# Reduce image size by using executable only
+
+FROM alpine:3.24.1
+
+WORKDIR /app
+
+COPY --from=builder /app/api-gateway .
+COPY config.yaml .
+COPY scripts/ ./scripts/
+# for local dev testing
+COPY certs/public.pem ./certs/
+
+EXPOSE 8080
+
+
+ENTRYPOINT ["./api-gateway"]
