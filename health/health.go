@@ -10,10 +10,10 @@ import (
 )
 
 type Handler struct {
-	rdb *redis.Client
+	rdb *redis.ClusterClient
 }
 
-func NewHandler(rdb *redis.Client) http.Handler {
+func NewHandler(rdb *redis.ClusterClient) http.Handler {
 	return &Handler{rdb: rdb}
 }
 

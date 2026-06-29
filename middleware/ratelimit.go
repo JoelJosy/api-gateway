@@ -16,12 +16,12 @@ import (
 )
 
 type RateLimiter struct {
-	rdb *redis.Client
+	rdb *redis.ClusterClient
 	cfg *config.Config
 	sha string // redis returned sha hash of script (fingerprint)
 }
 
-func NewRateLimiter(rdb *redis.Client, cfg *config.Config) (*RateLimiter, error) {
+func NewRateLimiter(rdb *redis.ClusterClient, cfg *config.Config) (*RateLimiter, error) {
 	// read lua script from file
 	script, err := os.ReadFile("scripts/rate_limit.lua")
 	if err != nil {

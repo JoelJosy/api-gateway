@@ -36,11 +36,12 @@ func main() {
 	}
 
 	// Load redis client
-	rdb := redis.NewClient(&redis.Options{
-		Addr:     cfg.Redis.Address,
+	rdb := redis.NewClusterClient(&redis.ClusterOptions{
+		Addrs:    []string{cfg.Redis.Address},
 		Password: "", // no password
-		DB:       0,  // use default DB
-		Protocol: 2,
+		DialTimeout:  5 * time.Second,
+		ReadTimeout:  3 * time.Second,
+		WriteTimeout: 3 * time.Second,
 	})
 	// redis needs context to handle timeouts/cancellation
 	ctx := context.Background()
