@@ -3,7 +3,7 @@ name: Deploy to Amazon ECS
 on:
   push:
     branches:
-      - main  # Triggers the pipeline whenever you push code to the main branch
+      - main
 
 env:
   AWS_REGION: ap-south-1
@@ -29,9 +29,9 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets::AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets::AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env::AWS_REGION }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
         id: login-ecr
@@ -43,11 +43,10 @@ jobs:
           context: .
           platforms: linux/arm64
           push: true
-          tags: ${{ steps::login-ecr::outputs::registry }}/${{ env::ECR_REPOSITORY }}:latest
+          tags: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # Forces ECS to pull down the newly pushed ECR image layers immediately
       - name: Force ECS Deployment
         run: |
-          aws ecs update-service --cluster ${{ env::ECS_CLUSTER }} --service ${{ env::ECS_SERVICE }} --force-new-deployment
+          aws ecs update-service --cluster ${{ env.ECS_CLUSTER }} --service ${{ env.ECS_SERVICE }} --force-new-deployment
