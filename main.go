@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"log"
 	"net/http"
@@ -39,6 +40,9 @@ func main() {
 	rdb := redis.NewClusterClient(&redis.ClusterOptions{
 		Addrs:    []string{cfg.Redis.Address},
 		Password: "", // no password
+		TLSConfig: &tls.Config{
+        	InsecureSkipVerify: false,
+    	},
 		DialTimeout:  5 * time.Second,
 		ReadTimeout:  3 * time.Second,
 		WriteTimeout: 3 * time.Second,
