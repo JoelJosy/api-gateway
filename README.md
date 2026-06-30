@@ -18,7 +18,9 @@ The gateway never trusts the upstream service to handle auth or rate limiting â€
 
 ## Demo
 
-[Demo video link here]
+
+https://github.com/user-attachments/assets/621387b9-3cfd-4f14-8017-ce2e91d2b478
+
 
 The recording shows the deployed gateway end to end: health check, a request rejected with `401` due to a missing JWT, the same request succeeding with a valid token, and a burst of requests triggering `429` once the rate limit is hit â€” all visible in real time through CloudWatch logs.
 
