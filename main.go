@@ -90,7 +90,7 @@ func main() {
 
 	// non blocking fn to listen and serve
 	go func() {
-		log.Printf("API Gateway starting on port %d", cfg.Port)
+		log.Printf("Gateway live on port %d!", cfg.Port)
 		err := srv.ListenAndServe()
 		if err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Server failed to start: %v", err)
